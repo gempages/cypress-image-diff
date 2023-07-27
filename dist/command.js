@@ -13,6 +13,7 @@ var compareSnapshotCommand = function compareSnapshotCommand(defaultScreenshotOp
   }, function (subject, name) {
     var testThreshold = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0;
     var recurseOptions = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : {};
+    var screenshotOptions = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : {};
     var testName = "".concat(name);
     var defaultRecurseOptions = {
       limit: 1,
@@ -33,7 +34,7 @@ var compareSnapshotCommand = function compareSnapshotCommand(defaultScreenshotOp
 
       // Take a screenshot and copy to baseline if it does not exist
       var objToOperateOn = subject ? cy.get(subject) : cy;
-      objToOperateOn.screenshot(testName, defaultScreenshotOptions).task('copyScreenshot', {
+      objToOperateOn.screenshot(testName, Object.assign({}, defaultScreenshotOptions, screenshotOptions)).task('copyScreenshot', {
         testName: testName
       });
 

@@ -18,7 +18,8 @@ const compareSnapshotCommand = defaultScreenshotOptions => {
       subject, 
       name, 
       testThreshold = userConfig.FAILURE_THRESHOLD,
-      recurseOptions = userConfig.RETRY_OPTIONS
+      recurseOptions = userConfig.RETRY_OPTIONS,
+      screenshotOptions = {}
     ) => {
       const testName = `${name}`
 
@@ -38,7 +39,7 @@ const compareSnapshotCommand = defaultScreenshotOptions => {
           cy.task('deleteReport', { testName })
 
           const objToOperateOn = subject ? cy.get(subject) : cy
-          const screenshotted = objToOperateOn.screenshot(testName, defaultScreenshotOptions)
+          const screenshotted = objToOperateOn.screenshot(testName, Object.assign({}, defaultScreenshotOptions, screenshotOptions))
 
           if (userConfig.FAIL_ON_MISSING_BASELINE === false) {
             // copy to baseline if it does not exist
