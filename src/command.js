@@ -20,8 +20,7 @@ const compareSnapshotCommand = defaultScreenshotOptions => {
       testThreshold = userConfig.FAILURE_THRESHOLD,
       recurseOptions = userConfig.RETRY_OPTIONS
     ) => {
-      const specName = Cypress.spec.name
-      const testName = `${specName.replace('.js', '')}${/^\//.test(name) ? '' : '-'}${name}`
+      const testName = `${name}`
 
       const defaultRecurseOptions = {
         limit: 1,

@@ -13,8 +13,7 @@ var compareSnapshotCommand = function compareSnapshotCommand(defaultScreenshotOp
   }, function (subject, name) {
     var testThreshold = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0;
     var recurseOptions = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : {};
-    var specName = Cypress.spec.name;
-    var testName = "".concat(specName.replace('.js', ''), "-").concat(name);
+    var testName = "".concat(name);
     var defaultRecurseOptions = {
       limit: 1,
       log: function log(percentage) {
