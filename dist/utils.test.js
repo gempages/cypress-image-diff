@@ -13,7 +13,8 @@ jest.mock('fs-extra', function () {
     emptyDirSync: jest.fn(),
     readdirSync: jest.fn(),
     moveSync: jest.fn(),
-    copySync: jest.fn()
+    copySync: jest.fn(),
+    writeFile: jest.fn()
   });
 });
 describe('Utils', function () {
@@ -70,6 +71,50 @@ describe('Utils', function () {
       expect(_fsExtra.copySync).toBeCalledWith(sampleFiles[0], sampleFiles[1], {
         "overwrite": true
       });
+    });
+  });
+  describe('Get relative path from the current working directory', function () {
+    var processCwd = jest.spyOn(process, 'cwd');
+    var fakeCwd = 'User/my-project/';
+    beforeEach(function () {
+      processCwd.mockReturnValue(fakeCwd);
+    });
+    it('should return empty string when path doesn\'t exist', function () {
+      _fsExtra.existsSync.mockReturnValue(false);
+      var relativePath = (0, _utils.getRelativePathFromCwd)('User/my-project/cypress/screenshot.png');
+      expect(relativePath).toBe('');
+    });
+    it('should return a relative path when given path exists', function () {
+      _fsExtra.existsSync.mockReturnValue(true);
+      var relativePath = (0, _utils.getRelativePathFromCwd)('User/my-project/cypress/screenshot.png');
+      expect(relativePath).toBe('cypress/screenshot.png');
+    });
+  });
+  describe('Get clean date string', function () {
+    afterEach(function () {
+      jest.restoreAllMocks();
+    });
+    it('should return a clean date string', function () {
+      var fakeDate = '01/09/2023, 23:22:48';
+      jest.spyOn(Date.prototype, 'toLocaleString').mockReturnValue(fakeDate);
+      expect((0, _utils.getCleanDate)()).toBe('01-09-2023_232248');
+    });
+  });
+  describe('Write incremented filename', function () {
+    var filename = 'User/my-project/report.json';
+    var filenameIncremented = 'User/my-project/report_2.json';
+    var fakeData = '{\n  "name": "test"\n}';
+    it('should create a new file with given name when no filename found', function () {
+      _fsExtra.existsSync.mockReturnValue(false);
+      (0, _utils.writeFileIncrement)(filename, fakeData);
+      expect(_fsExtra.writeFile).toHaveBeenCalledTimes(1);
+      expect(_fsExtra.writeFile).toBeCalledWith(filename, fakeData);
+    });
+    it('should increment filename when it already exists', function () {
+      _fsExtra.existsSync.mockReturnValueOnce(true).mockReturnValueOnce(false);
+      (0, _utils.writeFileIncrement)(filename, fakeData);
+      expect(_fsExtra.writeFile).toHaveBeenCalledTimes(1);
+      expect(_fsExtra.writeFile).toBeCalledWith(filenameIncremented, fakeData);
     });
   });
 });

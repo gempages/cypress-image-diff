@@ -4,10 +4,11 @@ var _interopRequireDefault = require("@babel/runtime/helpers/interopRequireDefau
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports.setFilePermission = exports.renameAndMoveFile = exports.renameAndCopyFile = exports.readDir = exports.parseImage = exports.createDir = exports.cleanDir = exports.adjustCanvas = void 0;
+exports.writeFileIncrement = exports.setFilePermission = exports.renameAndMoveFile = exports.renameAndCopyFile = exports.readDir = exports.parseImage = exports.getRelativePathFromCwd = exports.getCleanDate = exports.createDir = exports.cleanDir = exports.adjustCanvas = void 0;
 var _regenerator = _interopRequireDefault(require("@babel/runtime/regenerator"));
 var _asyncToGenerator2 = _interopRequireDefault(require("@babel/runtime/helpers/asyncToGenerator"));
 var _fsExtra = _interopRequireDefault(require("fs-extra"));
+var _path = _interopRequireDefault(require("path"));
 var _pngjs = require("pngjs");
 var createDir = function createDir(dirs) {
   dirs.forEach(function (dir) {
@@ -63,13 +64,13 @@ var parseImage = /*#__PURE__*/function () {
         case 0:
           return _context.abrupt("return", new Promise(function (resolve, reject) {
             var fd = _fsExtra["default"].createReadStream(image);
-            fd.pipe(new _pngjs.PNG())
+            fd.on('error', function (error) {
+              return reject(error);
+            }).pipe(new _pngjs.PNG())
             // eslint-disable-next-line func-names
             .on('parsed', function () {
               var that = this;
               resolve(that);
-            }).on('error', function (error) {
-              return reject(error);
             });
           }));
         case 1:
@@ -114,3 +115,43 @@ var adjustCanvas = /*#__PURE__*/function () {
   };
 }();
 exports.adjustCanvas = adjustCanvas;
+var getRelativePathFromCwd = function getRelativePathFromCwd(dir) {
+  var relative = _path["default"].relative(process.cwd(), dir);
+  return _fsExtra["default"].existsSync(relative) ? relative : '';
+};
+exports.getRelativePathFromCwd = getRelativePathFromCwd;
+var getCleanDate = function getCleanDate(date) {
+  var source = date ? new Date(date) : new Date();
+  return source.toLocaleString('en-GB').replace(/(,\s*)|,|\s+/g, '_').replace(/\\|\//g, '-').replace(/:/g, '');
+};
+exports.getCleanDate = getCleanDate;
+var writeFileIncrement = /*#__PURE__*/function () {
+  var _ref3 = (0, _asyncToGenerator2["default"])( /*#__PURE__*/_regenerator["default"].mark(function _callee3(name, data) {
+    var increment,
+      filename,
+      absolutePath,
+      _args3 = arguments;
+    return _regenerator["default"].wrap(function _callee3$(_context3) {
+      while (1) switch (_context3.prev = _context3.next) {
+        case 0:
+          increment = _args3.length > 2 && _args3[2] !== undefined ? _args3[2] : 1;
+          filename = "".concat(_path["default"].basename(name, _path["default"].extname(name))).concat(increment >= 2 ? "_".concat(increment) : '').concat(_path["default"].extname(name));
+          absolutePath = _path["default"].join(_path["default"].dirname(name), filename);
+          if (!(_fsExtra["default"].existsSync(absolutePath) === false)) {
+            _context3.next = 5;
+            break;
+          }
+          return _context3.abrupt("return", _fsExtra["default"].writeFile(absolutePath, data));
+        case 5:
+          return _context3.abrupt("return", writeFileIncrement(name, data, increment + 1));
+        case 6:
+        case "end":
+          return _context3.stop();
+      }
+    }, _callee3);
+  }));
+  return function writeFileIncrement(_x5, _x6) {
+    return _ref3.apply(this, arguments);
+  };
+}();
+exports.writeFileIncrement = writeFileIncrement;

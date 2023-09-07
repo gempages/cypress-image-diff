@@ -4,14 +4,38 @@ var _interopRequireDefault = require("@babel/runtime/helpers/interopRequireDefau
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-exports["default"] = exports.Paths = void 0;
+exports.userConfig = exports["default"] = exports.Paths = void 0;
 var _classCallCheck2 = _interopRequireDefault(require("@babel/runtime/helpers/classCallCheck"));
 var _createClass2 = _interopRequireDefault(require("@babel/runtime/helpers/createClass"));
 var _path = _interopRequireDefault(require("path"));
+var _merge = _interopRequireDefault(require("lodash/merge"));
+function getUserConfigFile() {
+  try {
+    // eslint-disable-next-line import/no-dynamic-require, global-require
+    return require(_path["default"].join(process.cwd(), 'cypress-image-diff.config'));
+  } catch (err) {
+    return {};
+  }
+}
+var DEFAULT_CONFIG = {
+  ROOT_DIR: '',
+  FAILURE_THRESHOLD: 0,
+  RETRY_OPTIONS: {},
+  FAIL_ON_MISSING_BASELINE: false,
+  COMPARISON_OPTIONS: {
+    threshold: 0.1
+  },
+  JSON_REPORT: {
+    FILENAME: '',
+    OVERWRITE: true
+  }
+};
+var userConfig = (0, _merge["default"])(DEFAULT_CONFIG, getUserConfigFile());
+exports.userConfig = userConfig;
 var Paths = /*#__PURE__*/function () {
   function Paths() {
     (0, _classCallCheck2["default"])(this, Paths);
-    this.rootDir = '';
+    this.rootDir = userConfig.ROOT_DIR;
     this.screenshotFolderName = 'cypress-visual-screenshots';
     this.reportFolderName = 'cypress-visual-report';
   }

@@ -2,6 +2,7 @@
 
 var _cypressRecurse = require("cypress-recurse");
 var compareSnapshotCommand = function compareSnapshotCommand(defaultScreenshotOptions) {
+  var userConfig = Cypress.env('cypressImageDiff');
   var height = Cypress.config('viewportHeight') || 1440;
   var width = Cypress.config('viewportWidth') || 1980;
 
@@ -11,8 +12,8 @@ var compareSnapshotCommand = function compareSnapshotCommand(defaultScreenshotOp
   Cypress.Commands.add('compareSnapshot', {
     prevSubject: 'optional'
   }, function (subject, name) {
-    var testThreshold = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0;
-    var recurseOptions = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : {};
+    var testThreshold = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : userConfig.FAILURE_THRESHOLD;
+    var recurseOptions = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : userConfig.RETRY_OPTIONS;
     var screenshotOptions = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : {};
     var testName = "".concat(name);
     var defaultRecurseOptions = {
@@ -31,17 +32,22 @@ var compareSnapshotCommand = function compareSnapshotCommand(defaultScreenshotOp
       cy.task('deleteReport', {
         testName: testName
       });
-
-      // Take a screenshot and copy to baseline if it does not exist
       var objToOperateOn = subject ? cy.get(subject) : cy;
-      objToOperateOn.screenshot(testName, Object.assign({}, defaultScreenshotOptions, screenshotOptions)).task('copyScreenshot', {
-        testName: testName
-      });
+      var screenshotted = objToOperateOn.screenshot(testName, Object.assign({}, defaultScreenshotOptions, screenshotOptions));
+      if (userConfig.FAIL_ON_MISSING_BASELINE === false) {
+        // copy to baseline if it does not exist
+        screenshotted.task('copyScreenshot', {
+          testName: testName
+        });
+      }
 
       // Compare screenshots
       var options = {
         testName: testName,
-        testThreshold: testThreshold
+        testThreshold: testThreshold,
+        failOnMissingBaseline: userConfig.FAIL_ON_MISSING_BASELINE,
+        specFilename: Cypress.spec.name,
+        specPath: Cypress.spec.relative
       };
       return cy.task('compareSnapshotsPlugin', options);
     }, function (percentage) {
