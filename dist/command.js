@@ -1,8 +1,10 @@
 "use strict";
 
+var _interopRequireDefault = require("@babel/runtime/helpers/interopRequireDefault");
 var _cypressRecurse = require("cypress-recurse");
+var _config = _interopRequireDefault(require("./config.default"));
 var compareSnapshotCommand = function compareSnapshotCommand(defaultScreenshotOptions) {
-  var userConfig = Cypress.env('cypressImageDiff');
+  var userConfig = Cypress.env('cypressImageDiff') || _config["default"];
   var height = Cypress.config('viewportHeight') || 1440;
   var width = Cypress.config('viewportWidth') || 1980;
 

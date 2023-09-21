@@ -9,6 +9,7 @@ var _classCallCheck2 = _interopRequireDefault(require("@babel/runtime/helpers/cl
 var _createClass2 = _interopRequireDefault(require("@babel/runtime/helpers/createClass"));
 var _path = _interopRequireDefault(require("path"));
 var _merge = _interopRequireDefault(require("lodash/merge"));
+var _config = _interopRequireDefault(require("./config.default"));
 function getUserConfigFile() {
   try {
     // eslint-disable-next-line import/no-dynamic-require, global-require
@@ -17,20 +18,7 @@ function getUserConfigFile() {
     return {};
   }
 }
-var DEFAULT_CONFIG = {
-  ROOT_DIR: '',
-  FAILURE_THRESHOLD: 0,
-  RETRY_OPTIONS: {},
-  FAIL_ON_MISSING_BASELINE: false,
-  COMPARISON_OPTIONS: {
-    threshold: 0.1
-  },
-  JSON_REPORT: {
-    FILENAME: '',
-    OVERWRITE: true
-  }
-};
-var userConfig = (0, _merge["default"])(DEFAULT_CONFIG, getUserConfigFile());
+var userConfig = (0, _merge["default"])(_config["default"], getUserConfigFile());
 exports.userConfig = userConfig;
 var Paths = /*#__PURE__*/function () {
   function Paths() {
