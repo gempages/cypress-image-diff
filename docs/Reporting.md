@@ -6,6 +6,7 @@ Baseline, comparison and diff images will only be added to the report for failin
 
 ## Cypress support index
 
+### Generate default HTML report
 Add the following after hook
 
 ```js
@@ -20,13 +21,19 @@ The report will look something like:
 
 ![Cypress Image Diff Report](../report-example.png)
 
+### Generate Custom HTML report
+
+If you want to generate your custom report, generate a report json file by passing `JSON_REPORT` in the [custom config file](../README.md#custom-config-file), and build your own HTML file from this json. 
+
+See [example.json](../report-example.json)
+
 ## Folder structure
 
 When a report is generated it will create the following folder:
 
 ```
     .
-    ├── cypress-visual-report
+    ├── cypress-image-diff-html-report
 ```
 
 There will be enhancements coming in to make the folder name/location configurable.

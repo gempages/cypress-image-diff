@@ -1,6 +1,7 @@
 import fs from 'fs-extra'
 import pixelmatch from 'pixelmatch'
 import { PNG } from 'pngjs'
+import path from 'path'
 
 import {
   createDir,
@@ -8,9 +9,13 @@ import {
   adjustCanvas,
   parseImage,
   setFilePermission,
-  renameAndMoveFile, renameAndCopyFile
+  renameAndMoveFile, renameAndCopyFile,
+  getRelativePathFromCwd,
+  getCleanDate,
+  writeFileIncrement,
+  toBase64
 } from './utils'
-import paths from './config'
+import paths, { userConfig } from './config'
 import TestStatus from './reporter/test-status'
 import { createReport } from './reporter'
 
@@ -21,7 +26,7 @@ const setupFolders = () => {
 }
 
 const tearDownDirs = () => {
-  cleanDir([paths.dir.comparison, paths.dir.diff, paths.reportDir])
+  cleanDir([paths.dir.comparison, paths.dir.diff])
 }
 
 const generateReport = (instance = '') => {
@@ -59,9 +64,21 @@ const deleteScreenshot = args => {
   return true
 }
 
-async function compareSnapshotsPlugin(args) {
-  const baselineImg = await parseImage(paths.image.baseline(args.testName))
-  const comparisonImg = await parseImage(paths.image.comparison(args.testName))
+const getStatsComparisonAndPopulateDiffIfAny = async (args) => {
+  let baselineImg
+  try {
+    baselineImg = await parseImage(paths.image.baseline(args.testName))
+  } catch (e) {
+    return args.failOnMissingBaseline
+      ? { percentage: 1, testFailed: true }
+      : { percentage: 0, testFailed: false }
+  }
+  let comparisonImg
+  try {
+    comparisonImg = await parseImage(paths.image.comparison(args.testName))
+  } catch (e) {
+    return { percentage: 1, testFailed: true }
+  }
   const diff = new PNG({
     width: Math.max(comparisonImg.width, baselineImg.width),
     height: Math.max(comparisonImg.height, baselineImg.height),
@@ -85,7 +102,7 @@ async function compareSnapshotsPlugin(args) {
     diff.data,
     diff.width,
     diff.height,
-    { threshold: 0.1 }
+    userConfig.COMPARISON_OPTIONS
   )
   
   const percentage = (pixelMismatchResult / diff.width / diff.height) ** 0.5
@@ -93,26 +110,104 @@ async function compareSnapshotsPlugin(args) {
 
   if (testFailed) {
     fs.ensureFileSync(paths.image.diff(args.testName))
-    diff.pack().pipe(fs.createWriteStream(paths.image.diff(args.testName)))
+    const stream = diff
+      .pack()
+      .pipe(fs.createWriteStream(paths.image.diff(args.testName)))
+
+    // make sure the diff image fully populated before proceeding further
+    await new Promise((resolve, reject) => {
+      stream.once('finish', resolve)
+      stream.once('error', reject)
+    })
   }
 
+  return { percentage, testFailed }
+}
+
+async function compareSnapshotsPlugin(args) {
+  const { percentage, testFailed } = await getStatsComparisonAndPopulateDiffIfAny(args)
+
   // Saving test status object to build report if task is triggered
-  testStatuses.push(new TestStatus({ 
+  let newTest = new TestStatus({ 
     status: !testFailed,
     name: args.testName,
     percentage,
-    failureThreshold: args.testThreshold
-  }))
+    failureThreshold: args.testThreshold,
+    specFilename: args.specFilename,
+    specPath: args.specPath,
+    baselinePath: getRelativePathFromCwd(paths.image.baseline(args.testName)),
+    diffPath: getRelativePathFromCwd(paths.image.diff(args.testName)),
+    comparisonPath: getRelativePathFromCwd(paths.image.comparison(args.testName))
+  })
+
+  if (args.inlineAssets) {
+    const [baselineDataUrl, diffDataUrl, comparisonDataUrl] = await Promise.all([
+      toBase64(newTest.baselinePath),
+      toBase64(newTest.diffPath),
+      toBase64(newTest.comparisonPath),
+    ])
+    newTest = {
+      ...newTest,
+      baselineDataUrl,
+      diffDataUrl,
+      comparisonDataUrl
+    }
+  }
+
+  testStatuses.push(newTest)
 
   return percentage
 }
 
-const getCompareSnapshotsPlugin = (on, config, { rootDir = '' } = {}) => {
-  paths.rootDir = rootDir
+const generateJsonReport = async (results) => {
+  const testsMappedBySpecPath = testStatuses.reduce((map, item) => {
+    if (map[item.specPath] === undefined) {
+      // eslint-disable-next-line no-param-reassign
+      map[item.specPath] = {
+        name: item.specFilename,
+        path: item.specPath,
+        tests: []
+      }
+    }
+    map[item.specPath].tests.push(item)
+
+    return map
+  }, {})
+
+  const suites = Object.values(testsMappedBySpecPath)
+  const totalPassed = testStatuses.filter(t => t.status === 'pass' ).length
+
+  const stats = {
+    total: testStatuses.length,
+    totalPassed,
+    totalFailed: testStatuses.length - totalPassed,
+    totalSuites: suites.length,
+    suites,
+    startedAt: results.startedTestsAt,
+    endedAt: results.endedTestsAt,
+    duration: results.totalDuration,
+    browserName: results.browserName,
+    browserVersion: results.browserVersion,
+    cypressVersion: results.cypressVersion,
+  }
+
+  const jsonFilename = userConfig.JSON_REPORT.FILENAME
+  ? `${userConfig.JSON_REPORT.FILENAME}.json`
+  : `report_${getCleanDate(stats.startedAt)}.json`
+
+  const jsonPath = path.join(paths.reportDir, jsonFilename)
+  if (userConfig.JSON_REPORT.OVERWRITE) {
+   await fs.writeFile(jsonPath, JSON.stringify(stats, null, 2))
+  } else {
+   await writeFileIncrement(jsonPath, JSON.stringify(stats, null, 2))
+  }
+}
+
+const getCompareSnapshotsPlugin = (on, config) => {
   // Create folder structure
   setupFolders()
 
-  // Delete comparison, diff images and generated reports to ensure a clean run
+  // Delete comparison and diff images to ensure a clean run
   tearDownDirs()
 
   // Force screenshot resolution to keep consistency of test runs across machines
@@ -158,6 +253,12 @@ const getCompareSnapshotsPlugin = (on, config, { rootDir = '' } = {}) => {
     }
   })
 
+  on('after:run', async (results) => {
+    if (userConfig.JSON_REPORT) {
+      await generateJsonReport(results)
+    }
+  })
+
   on('task', {
     compareSnapshotsPlugin,
     copyScreenshot,
@@ -165,6 +266,11 @@ const getCompareSnapshotsPlugin = (on, config, { rootDir = '' } = {}) => {
     generateReport,
     deleteReport,
   })
+
+  // eslint-disable-next-line no-param-reassign
+  config.env.cypressImageDiff = userConfig
+
+  return config
 }
 
 module.exports = getCompareSnapshotsPlugin

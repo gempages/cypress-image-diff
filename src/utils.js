@@ -1,4 +1,5 @@
 import fs from 'fs-extra'
+import path from 'path'
 import { PNG } from 'pngjs'
 
 const createDir = dirs => {
@@ -45,13 +46,13 @@ const renameAndCopyFile = (originalFilePath, newFilePath) => {
 const parseImage = async image => {
   return new Promise((resolve, reject) => {
     const fd = fs.createReadStream(image)
-    fd.pipe(new PNG())
+    fd.on('error', (error) => reject(error))
+      .pipe(new PNG())
       // eslint-disable-next-line func-names
       .on('parsed', function() {
         const that = this
         resolve(that)
       })
-      .on('error', (error) => reject(error))
   })
 }
 
@@ -72,4 +73,36 @@ const adjustCanvas = async (image, width, height) => {
   return imageAdjustedCanvas
 }
 
-export { createDir, cleanDir, readDir, parseImage, adjustCanvas, setFilePermission, renameAndMoveFile, renameAndCopyFile }
+const getRelativePathFromCwd = (dir) => {
+  const relative = path.relative(process.cwd(), dir)
+  return fs.existsSync(relative) ? relative : ''
+}
+
+const getCleanDate = (date) => {
+  const source = date ? new Date(date) : new Date()
+  return source
+    .toLocaleString('en-GB')
+    .replace(/(,\s*)|,|\s+/g, '_')
+    .replace(/\\|\//g, '-')
+    .replace(/:/g, '')
+}
+
+const writeFileIncrement = async (name, data, increment = 1) => {
+  const filename = `${path.basename(name, path.extname(name))}${
+    increment >= 2 ? `_${increment}` : ''
+  }${path.extname(name)}`
+
+  const absolutePath = path.join(path.dirname(name), filename)
+  if (fs.existsSync(absolutePath) === false) return fs.writeFile(absolutePath, data)
+
+  return writeFileIncrement(name, data, increment + 1)
+}
+
+const toBase64 = async (relativePath) => {
+  if (relativePath === '') return ''
+  const absolutePath = path.join(process.cwd(), relativePath)
+  const content = await fs.readFile(absolutePath, { encoding: 'base64' })
+  return `data:image/png;base64,${content}`
+}
+
+export { createDir, cleanDir, readDir, parseImage, adjustCanvas, setFilePermission, renameAndMoveFile, renameAndCopyFile, getRelativePathFromCwd, getCleanDate, writeFileIncrement, toBase64 }
